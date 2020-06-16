@@ -24,7 +24,7 @@ import io.vertx.sqlclient.SqlConnectOptions;
 import io.vertx.sqlclient.spi.Driver;
 
 public class DB2Driver implements Driver {
-
+  
   @Override
   public Pool createPool(SqlConnectOptions options, PoolOptions poolOptions) {
     return DB2Pool.pool(wrap(options), poolOptions);
@@ -35,17 +35,22 @@ public class DB2Driver implements Driver {
     return DB2Pool.pool(vertx, wrap(options), poolOptions);
   }
 
-  @Override
-  public boolean acceptsOptions(SqlConnectOptions options) {
-    return options instanceof DB2ConnectOptions || SqlConnectOptions.class.equals(options.getClass());
-  }
-  
   private static DB2ConnectOptions wrap(SqlConnectOptions options) {
     if (options instanceof DB2ConnectOptions) {
-      return (DB2ConnectOptions) options; 
+      return (DB2ConnectOptions) options;
     } else {
-      return new DB2ConnectOptions(options);
+      throw new IllegalArgumentException("Unsupported option type: " + options.getClass());
     }
+  }
+
+  @Override
+  public SqlConnectOptions createConnectOptions() {
+    return new DB2ConnectOptions();
+  }
+
+  @Override
+  public String name() {
+    return "DB2";
   }
 
 }

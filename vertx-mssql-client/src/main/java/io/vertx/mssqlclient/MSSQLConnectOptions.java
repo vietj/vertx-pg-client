@@ -11,6 +11,11 @@
 
 package io.vertx.mssqlclient;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
@@ -25,11 +30,6 @@ import io.vertx.core.net.ProxyOptions;
 import io.vertx.core.net.SSLEngineOptions;
 import io.vertx.core.net.TrustOptions;
 import io.vertx.sqlclient.SqlConnectOptions;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Connect options for configuring {@link MSSQLConnection}.
@@ -61,14 +61,10 @@ public class MSSQLConnectOptions extends SqlConnectOptions {
     MSSQLConnectOptionsConverter.fromJson(json, this);
   }
 
-  public MSSQLConnectOptions(SqlConnectOptions other) {
-    super(other);
-  }
-
   public MSSQLConnectOptions(MSSQLConnectOptions other) {
     super(other);
   }
-
+  
   @Override
   public MSSQLConnectOptions setHost(String host) {
     return (MSSQLConnectOptions) super.setHost(host);
