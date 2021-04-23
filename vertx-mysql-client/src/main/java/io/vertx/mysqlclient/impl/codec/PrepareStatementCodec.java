@@ -60,6 +60,13 @@ class PrepareStatementCodec extends CommandCodec<PreparedStatement, PrepareState
           int numberOfParameters = payload.readUnsignedShortLE();
           payload.readByte(); // [00] filler
           int numberOfWarnings = payload.readShortLE();
+          if (encoder.socketConnection.isOptionalMetadataSupported) {
+            boolean metaFollows = payload.readBoolean();
+            if (!metaFollows) {
+              encoder.onCommandResponse(CommandResponse.failure("Failed to prepare statements according to no metadata packet is following, make you have set server variable resultset_metadata='FULL'"));
+              return;
+            }
+          }
 
           // handle metadata here
           this.statementId = statementId;
@@ -131,7 +138,7 @@ class PrepareStatementCodec extends CommandCodec<PreparedStatement, PrepareState
   }
 
   private void handleReadyForQuery() {
-    completionHandler.handle(CommandResponse.success(new MySQLPreparedStatement(
+    encoder.onCommandResponse(CommandResponse.success(new MySQLPreparedStatement(
       cmd.sql(),
       this.statementId,
       new MySQLParamDesc(paramDescs),

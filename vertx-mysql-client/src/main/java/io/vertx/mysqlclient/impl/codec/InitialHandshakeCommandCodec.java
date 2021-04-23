@@ -40,13 +40,13 @@ class InitialHandshakeCommandCodec extends AuthenticationCommandBaseCodec<Connec
 
   private static final Logger LOGGER = LoggerFactory.getLogger(InitialHandshakeCommandCodec.class);
 
-  private static final int AUTH_PLUGIN_DATA_PART1_LENGTH = 8;
+  private static final byte AUTH_PLUGIN_DATA_PART1_LENGTH = 8;
 
-  private static final int ST_CONNECTING = 0;
-  private static final int ST_AUTHENTICATING = 1;
-  private static final int ST_CONNECTED = 2;
+  private static final byte ST_CONNECTING = 0;
+  private static final byte ST_AUTHENTICATING = 1;
+  private static final byte ST_CONNECTED = 2;
 
-  private int status = ST_CONNECTING;
+  private byte status = ST_CONNECTING;
 
   InitialHandshakeCommandCodec(InitialHandshakeCommand cmd) {
     super(cmd);
@@ -135,7 +135,7 @@ class InitialHandshakeCommandCodec extends AuthenticationCommandBaseCodec<Connec
         upgradeToSsl = true;
         break;
       default:
-        completionHandler.handle(CommandResponse.failure(new IllegalStateException("Unknown SSL mode to handle: " + sslMode)));
+        encoder.onCommandResponse(CommandResponse.failure(new IllegalStateException("Unknown SSL mode to handle: " + sslMode)));
         return;
     }
 
@@ -147,7 +147,7 @@ class InitialHandshakeCommandCodec extends AuthenticationCommandBaseCodec<Connec
         if (upgrade.succeeded()) {
           doSendHandshakeResponseMessage(serverAuthPluginName, cmd.authenticationPlugin(), authPluginData, serverCapabilitiesFlags);
         } else {
-          completionHandler.handle(CommandResponse.failure(upgrade.cause()));
+          encoder.onCommandResponse(CommandResponse.failure(upgrade.cause()));
         }
       });
     } else {
@@ -158,6 +158,10 @@ class InitialHandshakeCommandCodec extends AuthenticationCommandBaseCodec<Connec
   private void doSendHandshakeResponseMessage(String serverAuthPluginName, MySQLAuthenticationPlugin authPlugin, byte[] nonce, int serverCapabilitiesFlags) {
     Map<String, String> clientConnectionAttributes = cmd.connectionAttributes();
     encoder.clientCapabilitiesFlag &= serverCapabilitiesFlags;
+    if ((encoder.clientCapabilitiesFlag & CapabilitiesFlag.CLIENT_OPTIONAL_RESULTSET_METADATA) != 0) {
+      // trust the server once the flag is set the feature is supported
+      encoder.socketConnection.isOptionalMetadataSupported = true;
+    }
     String clientPluginName = authPlugin == MySQLAuthenticationPlugin.DEFAULT ? serverAuthPluginName : authPlugin.value;
     sendHandshakeResponseMessage(cmd.username(), cmd.password(), cmd.database(), nonce, clientPluginName, clientConnectionAttributes);
   }
@@ -167,7 +171,7 @@ class InitialHandshakeCommandCodec extends AuthenticationCommandBaseCodec<Connec
     switch (header) {
       case OK_PACKET_HEADER:
         status = ST_CONNECTED;
-        completionHandler.handle(CommandResponse.success(cmd.connection()));
+        encoder.onCommandResponse(CommandResponse.success(cmd.connection()));
         break;
       case ERROR_PACKET_HEADER:
         handleErrorPacketPayload(payload);
@@ -179,7 +183,7 @@ class InitialHandshakeCommandCodec extends AuthenticationCommandBaseCodec<Connec
         handleAuthMoreData(cmd.password().getBytes(StandardCharsets.UTF_8), payload);
         break;
       default:
-        completionHandler.handle(CommandResponse.failure(new IllegalStateException("Unhandled state with header: " + header)));
+        encoder.onCommandResponse(CommandResponse.failure(new IllegalStateException("Unhandled state with header: " + header)));
     }
   }
 
@@ -201,7 +205,7 @@ class InitialHandshakeCommandCodec extends AuthenticationCommandBaseCodec<Connec
         authResponse = password;
         break;
       default:
-        completionHandler.handle(CommandResponse.failure(new UnsupportedOperationException("Unsupported authentication method: " + pluginName)));
+        encoder.onCommandResponse(CommandResponse.failure(new UnsupportedOperationException("Unsupported authentication method: " + pluginName)));
         return;
     }
     sendBytesAsPacket(authResponse);

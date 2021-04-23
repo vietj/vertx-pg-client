@@ -36,7 +36,14 @@ abstract class QueryCommandBaseCodec<T, C extends QueryCommandBase<T>> extends C
 
   private final DataFormat format;
 
-  protected CommandHandlerState commandHandlerState = CommandHandlerState.INIT;
+  // Query base codec state machine
+  protected byte commandHandlerState = INIT;
+
+  protected static final byte INIT = 0x00;
+  protected static final byte HANDLING_COLUMN_DEFINITION = 0x01;
+  protected static final byte COLUMN_DEFINITIONS_DECODING_COMPLETED = 0x02;
+  protected static final byte HANDLING_ROW_DATA_OR_END_PACKET = 0x03;
+
   protected ColumnDefinition[] columnDefinitions;
   protected RowResultDecoder<?, T> decoder;
   private int currentColumn;
@@ -71,11 +78,7 @@ abstract class QueryCommandBaseCodec<T, C extends QueryCommandBase<T>> extends C
 
   protected abstract void handleInitPacket(ByteBuf payload);
 
-  protected void handleResultsetColumnCountPacketBody(ByteBuf payload) {
-    int columnCount = decodeColumnCountPacketPayload(payload);
-    commandHandlerState = CommandHandlerState.HANDLING_COLUMN_DEFINITION;
-    columnDefinitions = new ColumnDefinition[columnCount];
-  }
+  abstract protected void handleResultsetColumnCountPacketBody(ByteBuf payload);
 
   protected void handleResultsetColumnDefinitions(ByteBuf payload) {
     ColumnDefinition def = decodeColumnDefinitionPacketPayload(payload);
@@ -87,13 +90,13 @@ abstract class QueryCommandBaseCodec<T, C extends QueryCommandBase<T>> extends C
         handleResultsetColumnDefinitionsDecodingCompleted();
       } else {
         // we need to decode an EOF_Packet before handling rows, to be compatible with MySQL version below 5.7.5
-        commandHandlerState = CommandHandlerState.COLUMN_DEFINITIONS_DECODING_COMPLETED;
+        commandHandlerState = COLUMN_DEFINITIONS_DECODING_COMPLETED;
       }
     }
   }
 
   protected void handleResultsetColumnDefinitionsDecodingCompleted() {
-    commandHandlerState = CommandHandlerState.HANDLING_ROW_DATA_OR_END_PACKET;
+    commandHandlerState = HANDLING_ROW_DATA_OR_END_PACKET;
     decoder = new RowResultDecoder<>(cmd.collector(), /*cmd.isSingleton()*/ new MySQLRowDesc(columnDefinitions, format));
   }
 
@@ -124,7 +127,7 @@ abstract class QueryCommandBaseCodec<T, C extends QueryCommandBase<T>> extends C
       handleSingleResultsetDecodingCompleted(serverStatusFlags, affectedRows, lastInsertId);
     } else {
       // accept a row data
-      decoder.handleRow(columnDefinitions.length, payload);
+      decoder.handleRow(decoder.rowDesc.columnDefinitions().length, payload);
     }
   }
 
@@ -170,24 +173,18 @@ abstract class QueryCommandBaseCodec<T, C extends QueryCommandBase<T>> extends C
     } else {
       response = CommandResponse.success(this.result);
     }
-    completionHandler.handle(response);
+    encoder.onCommandResponse(response);
   }
 
-  private int decodeColumnCountPacketPayload(ByteBuf payload) {
+  protected final int decodeColumnCountPacketPayload(ByteBuf payload) {
     long columnCount = BufferUtils.readLengthEncodedInteger(payload);
     return (int) columnCount;
   }
 
   private void resetIntermediaryResult() {
-    commandHandlerState = CommandHandlerState.INIT;
+    commandHandlerState = INIT;
     columnDefinitions = null;
     currentColumn = 0;
   }
 
-  protected enum CommandHandlerState {
-    INIT,
-    HANDLING_COLUMN_DEFINITION,
-    COLUMN_DEFINITIONS_DECODING_COMPLETED,
-    HANDLING_ROW_DATA_OR_END_PACKET
-  }
 }

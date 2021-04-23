@@ -40,7 +40,9 @@ public class MySQLConnectionFactory extends SqlConnectionFactoryBase implements 
   private SslMode sslMode;
   private Buffer serverRsaPublicKey;
   private int initialCapabilitiesFlags;
+  private int pipeliningLimit;
   private MySQLAuthenticationPlugin authenticationPlugin;
+  private boolean optionalResultSetMetadata;
 
   public MySQLConnectionFactory(VertxInternal vertx, MySQLConnectOptions options) {
     super(vertx, options);
@@ -75,6 +77,7 @@ public class MySQLConnectionFactory extends SqlConnectionFactoryBase implements 
     this.useAffectedRows = options.isUseAffectedRows();
     this.sslMode = options.isUsingDomainSocket() ? SslMode.DISABLED : options.getSslMode();
     this.authenticationPlugin = options.getAuthenticationPlugin();
+    this.optionalResultSetMetadata = options.isOptionalResultSetMetadata();
 
     // server RSA public key
     Buffer serverRsaPublicKey = null;
@@ -87,6 +90,7 @@ public class MySQLConnectionFactory extends SqlConnectionFactoryBase implements 
     }
     this.serverRsaPublicKey = serverRsaPublicKey;
     this.initialCapabilitiesFlags = initCapabilitiesFlags();
+    this.pipeliningLimit = options.getPipeliningLimit();
 
     // check the SSLMode here
     switch (sslMode) {
@@ -117,7 +121,7 @@ public class MySQLConnectionFactory extends SqlConnectionFactoryBase implements 
     fut.onComplete(ar -> {
       if (ar.succeeded()) {
         NetSocket so = ar.result();
-        MySQLSocketConnection conn = new MySQLSocketConnection((NetSocketInternal) so, cachePreparedStatements, preparedStatementCacheSize, preparedStatementCacheSqlFilter, context);
+        MySQLSocketConnection conn = new MySQLSocketConnection((NetSocketInternal) so, cachePreparedStatements, preparedStatementCacheSize, preparedStatementCacheSqlFilter, pipeliningLimit, context);
         conn.init();
         conn.sendStartupMessage(username, password, database, collation, serverRsaPublicKey, properties, sslMode, initialCapabilitiesFlags, charsetEncoding, authenticationPlugin, promise);
       } else {
@@ -136,6 +140,9 @@ public class MySQLConnectionFactory extends SqlConnectionFactoryBase implements 
     }
     if (!useAffectedRows) {
       capabilitiesFlags |= CLIENT_FOUND_ROWS;
+    }
+    if (optionalResultSetMetadata) {
+      capabilitiesFlags |= CLIENT_OPTIONAL_RESULTSET_METADATA;
     }
 
     return capabilitiesFlags;

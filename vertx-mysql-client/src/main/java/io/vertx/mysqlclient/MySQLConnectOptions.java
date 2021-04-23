@@ -54,6 +54,8 @@ public class MySQLConnectOptions extends SqlConnectOptions {
   public static final Map<String, String> DEFAULT_CONNECTION_ATTRIBUTES;
   public static final SslMode DEFAULT_SSL_MODE = SslMode.DISABLED;
   public static final String DEFAULT_CHARACTER_ENCODING = "UTF-8";
+  public static final int DEFAULT_PIPELINING_LIMIT = 1;
+  public static final boolean DEFAULT_OPTIONAL_RESULTSET_METADATA = false;
 
   static {
     Map<String, String> defaultAttributes = new HashMap<>();
@@ -68,7 +70,9 @@ public class MySQLConnectOptions extends SqlConnectOptions {
   private String serverRsaPublicKeyPath;
   private Buffer serverRsaPublicKeyValue;
   private String characterEncoding = DEFAULT_CHARACTER_ENCODING;
+  private int pipeliningLimit = DEFAULT_PIPELINING_LIMIT;
   private MySQLAuthenticationPlugin authenticationPlugin = MySQLAuthenticationPlugin.DEFAULT;
+  private boolean optionalResultSetMetadata = DEFAULT_OPTIONAL_RESULTSET_METADATA;
 
   public MySQLConnectOptions() {
     super();
@@ -91,6 +95,7 @@ public class MySQLConnectOptions extends SqlConnectOptions {
       this.serverRsaPublicKeyValue = opts.serverRsaPublicKeyValue != null ? opts.serverRsaPublicKeyValue.copy() : null;
       this.characterEncoding = opts.characterEncoding;
       this.authenticationPlugin = opts.authenticationPlugin;
+      this.optionalResultSetMetadata = opts.optionalResultSetMetadata;
     }
   }
 
@@ -104,6 +109,7 @@ public class MySQLConnectOptions extends SqlConnectOptions {
     this.serverRsaPublicKeyValue = other.serverRsaPublicKeyValue != null ? other.serverRsaPublicKeyValue.copy() : null;
     this.characterEncoding = other.characterEncoding;
     this.authenticationPlugin = other.authenticationPlugin;
+    this.optionalResultSetMetadata = other.optionalResultSetMetadata;
   }
 
   /**
@@ -288,6 +294,51 @@ public class MySQLConnectOptions extends SqlConnectOptions {
    */
   public Buffer getServerRsaPublicKeyValue() {
     return serverRsaPublicKeyValue;
+  }
+
+  /**
+   * Get the pipelining limit count.
+   *
+   * @return the pipelining count
+   */
+  public int getPipeliningLimit() {
+    return pipeliningLimit;
+  }
+
+  /**
+   * Set the pipelining limit count.
+   *
+   * @param pipeliningLimit the count to configure
+   * @return a reference to this, so the API can be used fluently
+   */
+  public MySQLConnectOptions setPipeliningLimit(int pipeliningLimit) {
+    if (pipeliningLimit < 1) {
+      throw new IllegalArgumentException("pipelining limit can not be less than 1");
+    }
+    this.pipeliningLimit = pipeliningLimit;
+    return this;
+  }
+
+  /**
+   * Get the flag if the optional resultset metadata is enabled for MySQL connections, if the flag is {@code true}, then you can SET system variable {@code resultset_metadata} to 'NONE'
+   * so that the server will not transfer meta info of table columns and you can save some network and decoding cost for executing prepared statements.
+   * Note the variable is not working with {@link io.vertx.sqlclient.SqlClient#query(String)} and you might get an error executing queries if the variable is set to 'NONE'.
+   *
+   * @return the optional resultset metadata flag
+   */
+  public boolean isOptionalResultSetMetadata() {
+    return optionalResultSetMetadata;
+  }
+
+  /**
+   * Set the flag if the optional resultset metadata is enabled for MySQL connections.
+   *
+   * @param optionalResultSetMetadata if the optional resultset metadata is enabled
+   * @return a reference to this, so the API can be used fluently
+   */
+  public MySQLConnectOptions setOptionalResultSetMetadata(boolean optionalResultSetMetadata) {
+    this.optionalResultSetMetadata = optionalResultSetMetadata;
+    return this;
   }
 
   @Override

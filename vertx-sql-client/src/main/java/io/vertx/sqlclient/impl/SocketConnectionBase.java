@@ -60,7 +60,7 @@ public abstract class SocketConnectionBase implements Connection {
   protected final EventLoopContext context;
   private final Predicate<String> preparedStatementCacheSqlFilter;
   private Holder holder;
-  private final int pipeliningLimit;
+  protected final int pipeliningLimit;
 
   // Command pipeline state
   private final ArrayDeque<CommandBase<?>> pending = new ArrayDeque<>();
@@ -332,5 +332,13 @@ public abstract class SocketConnectionBase implements Connection {
         holder.handleClosed();
       }
     }
+  }
+
+  public void suspendPipeline() {
+    this.paused = true;
+  }
+
+  public void resumePipeline() {
+    this.paused = false;
   }
 }
