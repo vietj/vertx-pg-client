@@ -40,6 +40,7 @@ public class MySQLConnectionFactory extends SqlConnectionFactoryBase implements 
   private SslMode sslMode;
   private Buffer serverRsaPublicKey;
   private int initialCapabilitiesFlags;
+  private int pipeliningLimit;
   private MySQLAuthenticationPlugin authenticationPlugin;
 
   public MySQLConnectionFactory(VertxInternal vertx, MySQLConnectOptions options) {
@@ -87,6 +88,7 @@ public class MySQLConnectionFactory extends SqlConnectionFactoryBase implements 
     }
     this.serverRsaPublicKey = serverRsaPublicKey;
     this.initialCapabilitiesFlags = initCapabilitiesFlags();
+    this.pipeliningLimit = options.getPipeliningLimit();
 
     // check the SSLMode here
     switch (sslMode) {
@@ -117,7 +119,7 @@ public class MySQLConnectionFactory extends SqlConnectionFactoryBase implements 
     fut.onComplete(ar -> {
       if (ar.succeeded()) {
         NetSocket so = ar.result();
-        MySQLSocketConnection conn = new MySQLSocketConnection((NetSocketInternal) so, cachePreparedStatements, preparedStatementCacheSize, preparedStatementCacheSqlFilter, context);
+        MySQLSocketConnection conn = new MySQLSocketConnection((NetSocketInternal) so, cachePreparedStatements, preparedStatementCacheSize, preparedStatementCacheSqlFilter, pipeliningLimit, context);
         conn.init();
         conn.sendStartupMessage(username, password, database, collation, serverRsaPublicKey, properties, sslMode, initialCapabilitiesFlags, charsetEncoding, authenticationPlugin, promise);
       } else {
